@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "homepage": "https://alay0822.github.io/PIT3-Appdev",
-
   "scripts": {
     "dev": "vite",
     "build": "vite build",
