@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import "../index.css";
 
 export default function TodoList({ darkMode, setDarkMode }) {
@@ -9,22 +10,44 @@ export default function TodoList({ darkMode, setDarkMode }) {
   const [filter, setFilter] = useState("all");
   const [selectAll, setSelectAll] = useState(false);
 
+  // Fetch tasks from the backend API
+  useEffect(() => {
+    axios.get("http://localhost:8000/api/tasks/") // Replace with your backend URL
+      .then(response => {
+        setTasks(response.data);
+      })
+      .catch(error => console.error("There was an error fetching tasks:", error));
+  }, []);
+
   const addTask = () => {
     if (task.trim() === "") return;
-    setTasks([...tasks, { text: task, completed: false }]);
-    setTask("");
+    axios.post("http://localhost:8000/api/tasks/", { title: task, completed: false })
+      .then(response => {
+        setTasks([...tasks, response.data]);
+        setTask("");
+      })
+      .catch(error => console.error("Error adding task:", error));
   };
 
   const removeTask = (index) => {
-    setTasks(tasks.filter((_, i) => i !== index));
+    const taskToDelete = tasks[index];
+    axios.delete(`http://localhost:8000/api/tasks/${taskToDelete.id}/`)
+      .then(() => {
+        setTasks(tasks.filter((_, i) => i !== index));
+      })
+      .catch(error => console.error("Error removing task:", error));
   };
 
   const toggleComplete = (index) => {
-    setTasks(
-      tasks.map((t, i) =>
-        i === index ? { ...t, completed: !t.completed } : t
-      )
-    );
+    const taskToToggle = tasks[index];
+    axios.put(`http://localhost:8000/api/tasks/${taskToToggle.id}/`, {
+      ...taskToToggle,
+      completed: !taskToToggle.completed,
+    })
+      .then(response => {
+        setTasks(tasks.map((t, i) => (i === index ? response.data : t)));
+      })
+      .catch(error => console.error("Error toggling task completion:", error));
   };
 
   const startEditing = (index, text) => {
@@ -34,22 +57,32 @@ export default function TodoList({ darkMode, setDarkMode }) {
 
   const saveEdit = (index) => {
     if (editedTask.trim() === "") return;
-    setTasks(
-      tasks.map((t, i) => (i === index ? { ...t, text: editedTask } : t))
-    );
-    setEditingIndex(null);
+    const taskToEdit = tasks[index];
+    axios.put(`http://localhost:8000/api/tasks/${taskToEdit.id}/`, {
+      ...taskToEdit,
+      title: editedTask,
+    })
+      .then(response => {
+        setTasks(tasks.map((t, i) => (i === index ? response.data : t)));
+        setEditingIndex(null);
+      })
+      .catch(error => console.error("Error saving task edit:", error));
   };
 
   const handleDeleteAll = () => {
     if (selectAll) {
-      setTasks([]);
-      setSelectAll(false);
+      axios.delete("http://localhost:8000/api/tasks/")
+        .then(() => {
+          setTasks([]);
+          setSelectAll(false);
+        })
+        .catch(error => console.error("Error deleting all tasks:", error));
     }
   };
 
   const handleSelectAll = () => {
     setSelectAll(!selectAll);
-    setTasks(tasks.map((t) => ({ ...t, completed: !selectAll })));
+    tasks.forEach(task => toggleComplete(tasks.indexOf(task)));
   };
 
   const filteredTasks = tasks.filter((t) => {
@@ -78,13 +111,13 @@ export default function TodoList({ darkMode, setDarkMode }) {
         <button className="delete-all-button" onClick={handleDeleteAll} disabled={!selectAll}>Delete All</button>
       </div>
       <div className="select-all-container">
-  <input 
-    type="checkbox" 
-    checked={selectAll} 
-    onChange={handleSelectAll} 
-    id="select-all"
-  />
-  <label htmlFor="select-all">Select All</label>
+        <input 
+          type="checkbox" 
+          checked={selectAll} 
+          onChange={handleSelectAll} 
+          id="select-all"
+        />
+        <label htmlFor="select-all">Select All</label>
       </div>
       <ul>
         {filteredTasks.map((t, index) => (
@@ -105,8 +138,8 @@ export default function TodoList({ darkMode, setDarkMode }) {
               </>
             ) : (
               <>
-                <span>{t.text}</span>
-                <button onClick={() => startEditing(index, t.text)}>✏️</button>
+                <span>{t.title}</span>
+                <button onClick={() => startEditing(index, t.title)}>✏️</button>
                 <button onClick={() => removeTask(index)}>❌</button>
               </>
             )}
